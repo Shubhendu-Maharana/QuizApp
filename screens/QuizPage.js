@@ -81,7 +81,7 @@ const QuizPage = ({ navigation }) => {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: BG }} >
-            <StatusBar />
+            <StatusBar style='light' />
 
 
             <Modal

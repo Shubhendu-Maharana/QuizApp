@@ -1,10 +1,11 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { StatusBar, setStatusBarStyle } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Text, View, TextInput, TouchableOpacity, Alert } from 'react-native'
 import { useFonts, Comfortaa_400Regular, Comfortaa_700Bold } from '@expo-google-fonts/comfortaa';
 import { useRoute } from '@react-navigation/native';
 import CryptoJS from "react-native-crypto-js"
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const PRIMARY = '#4a7b79';
 const SECONDARY = '#f8c660';
@@ -16,14 +17,14 @@ const QuizGenerate = ({ navigation }) => {
     const [loading, setLoading] = useState(false);
     const [quizData, setQuizData] = useState(null);
     const [quizeGenerated, setQuizGenerated] = useState(false);
-    const API_URL = "https://api.openai.com/v1/chat/completions";
     const ENCRYPTED_API_KEY =
-        "U2FsdGVkX182LMlOeBL/ajj6laWVCRso4H+6LjJgTpL4iDv4vBu6uAxJEc8bpOOh5YqtSb3wBOFqNgLZPXJV5AIOjhN2m1lA2l3IQNRAm8s=";
-    const API_KEY = CryptoJS.AES.decrypt(
+        "U2FsdGVkX1+XKlP/ZMWUbNw2VGq51G1UvrZASn+jtK7sHLV4n7FB+xq3G0LztUaeiFDhnCpMoK0cf1X4bVYSeQ==";
+
+    const GEMINI_API_KEY = CryptoJS.AES.decrypt(
         ENCRYPTED_API_KEY.toString(),
         "shubhendu"
     ).toString(CryptoJS.enc.Utf8);
-    const query = `give 30 questions about ${topic} in json format as like, id: starts from 1 and so on, question: conatains actual question, options: array of 4 options, answer: contains actual answer from options don't wrap these with any name`;
+    const query = `give 10 questions about ${topic} in json format as like, id: starts from 1 and so on, question: conatains actual question, options: array of 4 options, answer: contains actual answer from options don't wrap these with any name`;
 
     setStatusBarStyle("light")
 
@@ -36,25 +37,23 @@ const QuizGenerate = ({ navigation }) => {
 
     const generateQuizData = async () => {
         setLoading(true)
-        const requestOptions = {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${API_KEY}`,
-            },
-            body: JSON.stringify({
-                model: "gpt-3.5-turbo",
-                messages: [{ role: "user", content: query }],
-            }),
-        };
 
         try {
-            const res = await (await fetch(API_URL, requestOptions)).json();
-            const data = res.choices[0].message.content;
-            setQuizData(JSON.parse(data));
-            if (quizData === null) {
+            const genAi = new GoogleGenerativeAI(GEMINI_API_KEY);
+            const model = genAi.getGenerativeModel({
+                model: "gemini-1.5-pro-latest",
+            });
+
+            const result = await model.generateContent(query);
+            const resultText = result.response.candidates[0].content.parts[0].text;
+            let startIndex = resultText.indexOf("[");
+            let endIndex = resultText.lastIndexOf("]");
+            let data = resultText.substring(startIndex, endIndex + 1); // Delete any useless characters. Fixes JSON parsing error from Gemini response
+            const actualData = JSON.parse(data);
+            if (actualData === null) {
                 Alert.alert("Error while generating...Try again")
             } else {
+                setQuizData(actualData);
                 setQuizGenerated(true);
             }
         } finally {
@@ -76,7 +75,7 @@ const QuizGenerate = ({ navigation }) => {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: '#4a7b79' }} >
-            <StatusBar />
+            <StatusBar style='light' />
 
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                 <View style={{ backgroundColor: 'white', height: 220, width: 220, borderRadius: 999, justifyContent: 'center' }}>
